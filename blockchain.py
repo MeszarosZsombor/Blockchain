@@ -1,66 +1,30 @@
-import hashlib
-import pathlib
 import pprint
 import random
 import time
-import rsa
+import merkletools
+import encryption_module
 
 
 # initiate the chain of blocks
-blockchain = []
+full_blockchain = []
+light_blockchain = []
 
 # define number of TXs per block
 TXs_per_block = int(input('How many TXs per block would you like to generate?\n'))
 
 
-def generate_keys():
-    (pub_key, pri_key) = rsa.newkeys(512)
-    string_pub_key = pub_key.save_pkcs1('PEM')
-    string_pri_key = pri_key.save_pkcs1('PEM')
-    with open("Private_key.key", 'wb') as f1:
-        f1.write(string_pri_key)
-    with open("Public_key.key", 'wb') as f2:
-        f2.write(string_pub_key)
-    return string_pri_key, string_pub_key
-
-
 # generate asymmetric keys
-public_key, private_key = generate_keys()
+public_key, private_key = encryption_module.generate_keys()
 
 
-def sign(object_to_be_used_for_signature):
-    hashed_object = hash_object(object_to_be_used_for_signature)
-    encoded_hashed_object = hashed_object.encode('UTF-8')
-    serialized_key = retrieve_key_from_saved_file('Private')
-    return rsa.sign(encoded_hashed_object, serialized_key, 'SHA-256')
-
-
-def retrieve_key_from_saved_file(private_or_public):
-    path = private_or_public + "_key.key"
-    file_path = pathlib.Path(path)
-    with open(file_path, 'rb') as f:
-        if private_or_public == 'Private':
-            return rsa.PrivateKey.load_pkcs1(f.read())
-        if private_or_public == "Public":
-            return rsa.PublicKey.load_pkcs1(f.read())
-        return None
-
-
-def verify_signature(hashed_object, deserialized_signature, key):
-    encoded_hashed_object = hashed_object.encode('UTF-8')
-    serialized_signature = deserialized_signature
-    return verify(encoded_hashed_object, serialized_signature, key)
-
-
-def verify(hashed_credential, signature, pub_key):
-    valid = False
-    try:
-        rsa.verify(hashed_credential, signature, pub_key)
-        valid = True
-    except Exception as e:
-        print('a signature is found invalid!')
-        print(e)
-    return valid
+def randomly_select_TX():
+    block = random.choice(full_blockchain)
+    while len(block['Body']) == 0 :
+        block = random.choice(full_blockchain)
+    TX = random.choice(block['Body'])
+    print('Randomly selected Block is number: ' + str(block['Header']['block_no']))
+    print('Randomly selected TX is: ' + str(TX))
+    return block['Header']['block_no'], TX
 
 
 def get_empty_block():
@@ -72,6 +36,15 @@ def get_empty_block():
                             'block_no': 0},
                  'Body': get_transactions(TXs_per_block)}
     return new_block
+
+
+def test_SPV():
+    block_num, TX = randomly_select_TX()
+    MP = merkletools.request_merkle_path(TX, full_blockchain)
+    print('Merkle Path is : ')
+    print_list_or_dict(MP)
+    TX_is_valid = merkletools.SPV(MP, TX['TX_Double_Hash'], light_blockchain[block_num]['MR'])
+    print('TX was found valid: ' + str(TX_is_valid))
 
 
 # define the used consensus
@@ -92,26 +65,20 @@ def define_consensus_algo():
 
 def get_transactions(num_txs):
     # randomly generate and return some simulated TXs
-    list_of_txs = []
+    txs = {}
+    txs_set = set()
     for entity in range(num_txs):
-        list_of_txs.append(get_new_transaction())
-    return list_of_txs
+        new_tx = get_new_transaction()
+        while new_tx in txs_set:
+            new_tx = get_new_transaction()
+        txs_set.add(new_tx)
+        txs[entity] = {'TX_Double_Hash': encryption_module.hash_twice(new_tx),
+                       'Data': new_tx}
+    return txs
 
 
 def get_new_transaction():
     return random.randint(1, 1000000)
-
-
-def hash_object(entity):
-    # hash something
-    h = hashlib.sha256()
-    h.update(str(entity).encode(encoding='UTF-8'))
-    return h.hexdigest()
-
-
-def hash_twice(entity):
-    # hash something twice as for the merkle tree
-    return hash_object(hash_object(entity))
 
 
 def print_list_or_dict(to_be_printed):
@@ -120,8 +87,7 @@ def print_list_or_dict(to_be_printed):
         pprint.pprint(to_be_printed, sort_dicts=False)
     elif type(to_be_printed) == list:
         for element in range(len(to_be_printed)):
-            print(str(i + 1) + '-')
-            print(to_be_printed[i])
+            print(str(element + 1) + '- ' + to_be_printed[element])
     print('==========================================')
 
 
@@ -129,77 +95,26 @@ def get_new_block(consensus, parameter):
     # fill in a new block
     new_block = get_empty_block()
     new_block['Header']['Timestamp'] = time.time()
-    new_block['Header']['block_no'] = len(blockchain)
-    if len(blockchain) == 0:
-        new_block['Body'] = []
+    new_block['Header']['block_no'] = len(full_blockchain)
+    if len(full_blockchain) == 0:
+        new_block['Body'] = {}
         new_block['Header']['MR'] = '0'
         new_block['Header']['previous_hash'] = '0'
     else:
-        new_block['Header']['MR'] = get_MR(new_block['Body'])
-        new_block['Header']['previous_hash'] = blockchain[-1]['Header']['Hash']
+        new_block['Merkle_tree'] = merkletools.get_Merkle_Tree(new_block['Body'])
+        new_block['Header']['MR'] = new_block['Merkle_tree'][-1]
+        new_block['Header']['previous_hash'] = full_blockchain[-1]['Header']['Hash']
     to_be_hashed = [new_block['Header']['Timestamp'], new_block['Header']['previous_hash'], new_block['Body']]
-    new_block['Header']['Hash'] = hash_object(to_be_hashed)
-    new_block = get_proof(new_block, consensus, parameter)
+    new_block['Header']['Hash'] = encryption_module.hash_object(to_be_hashed)
+    new_block = encryption_module.get_proof(new_block, consensus, parameter)
     return new_block
 
 
-def get_next_level_MT(list_of_TXs):
-    counter = 0
-    concatenations = []
-    while counter < len(list_of_TXs):
-        TX1 = list_of_TXs[counter]
-        try:
-            TX2 = list_of_TXs[counter + 1]
-        except Exception as e:
-            TX2 = list_of_TXs[counter]
-        hash_TX1 = hash_twice(TX1)
-        hash_TX2 = hash_twice(TX2)
-        concatenations.append(hash_TX1 + hash_TX2)
-        counter += 2
-    return concatenations
-
-
-def get_MR(list_of_txs):
-    # retreive the merkle root of a body
-    MR = None
-    while not MR:
-        concatenations = get_next_level_MT(list_of_txs)
-        if len(concatenations) == 1:
-            return hash_twice(concatenations[0])
-        else:
-            list_of_txs = concatenations
-
-
 def append_block_to_chain(new_block):
-    blockchain.append(new_block)
+    full_blockchain.append(new_block)
+    light_blockchain.append(new_block['Header'])
     print('New block is added to the chain:\n')
     print_list_or_dict(new_block)
-
-
-def get_PoW_proof(block, targeted_hash):
-    for nonce in range(1, 4000000000):
-        hash_of_block = hash_object([nonce, block['Header']['Timestamp'], block['Header']['previous_hash'], block['Body']])
-        if pow_block_is_valid(hash_of_block, targeted_hash):
-            block['Header']['Hash'] = hash_of_block
-            block['Header']['proof'] = nonce
-            return block
-    return None
-
-
-def get_PoS_proof(block, staked_crypto):
-    block['Header']['proof'] = [staked_crypto, 'Miner_1']
-    return block
-
-
-def get_PoA_proof(block):
-
-    signature_bytes = sign(block['Body'])
-    if verify_signature(hash_object(block['Body']), signature_bytes, retrieve_key_from_saved_file('Public')):
-        print('Signature is valid')
-        block['Header']['proof'] = signature_bytes
-        print('Signature added to the block')
-
-    return block
 
 
 def get_target(difficulty):
@@ -211,19 +126,6 @@ def get_target(difficulty):
     return string_target
 
 
-def pow_block_is_valid(hash_of_block, targeted_hash):
-    return int(hash_of_block, 16) <= int(targeted_hash, 16)
-
-
-def get_proof(block, consensus, parameter):
-    if consensus == 1:
-        return get_PoW_proof(block, parameter)
-    elif consensus == 2:
-        return get_PoS_proof(block, parameter)
-    elif consensus == 3:
-        return get_PoA_proof(block)
-
-
 if __name__ == '__main__':
     # run the simulation
     consensus_type, second_parameter = define_consensus_algo()
@@ -232,3 +134,6 @@ if __name__ == '__main__':
 
     for i in range(int(input('How many blocks would you like to generate?\n'))):
         append_block_to_chain(get_new_block(consensus_type, second_parameter))
+
+    input('Now lets test our SPV implementation..?')
+    test_SPV()
