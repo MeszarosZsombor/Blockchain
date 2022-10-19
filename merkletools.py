@@ -42,11 +42,20 @@ def get_concatenations(list_of_TXs):
     return concatenations
 
 
-def request_merkle_path(tx, full_blockchain):
-    for block in full_blockchain:
-        for TX_num in block['Body']:
-            if block['Body'][TX_num]['Data'] == tx['Data']:
-                return get_path(block['Merkle_tree'], block['Body'][TX_num]['TX_Double_Hash'])
+def request_merkle_path(tx, full_blockchain, stack_of_txs):
+    # step1: check if tx data is correct
+    path = None
+    tx_is_valid = False
+    print('Full node is checking if the TX is valid..')
+    for element in stack_of_txs:
+        if element == tx['Data']:
+            tx_is_valid = True
+            print('TX is found valid, Full node is building the Merkle Path for the light-node..')
+            for block in full_blockchain:
+                for TX_num in block['Body']:
+                    if block['Body'][TX_num]['Data'] == tx['Data']:
+                        path = get_path(block['Merkle_tree'], block['Body'][TX_num]['TX_Double_Hash'])
+    return path, tx_is_valid
 
 
 def get_path(nodes_of_merkel_tree_reversed, tx_hash):

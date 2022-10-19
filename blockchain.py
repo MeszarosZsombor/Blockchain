@@ -8,6 +8,7 @@ import encryption_module
 # initiate the chain of blocks
 full_blockchain = []
 light_blockchain = []
+stack_of_TXs = []
 
 # define number of TXs per block
 TXs_per_block = int(input('How many TXs per block would you like to generate?\n'))
@@ -40,11 +41,15 @@ def get_empty_block():
 
 def test_SPV():
     block_num, TX = randomly_select_TX()
-    MP = merkletools.request_merkle_path(TX, full_blockchain)
-    print('Merkle Path is : ')
-    print_list_or_dict(MP)
-    TX_is_valid = merkletools.SPV(MP, TX['TX_Double_Hash'], light_blockchain[block_num]['MR'])
-    print('TX was found valid: ' + str(TX_is_valid))
+    MP, is_valid = merkletools.request_merkle_path(TX, full_blockchain, stack_of_TXs)
+    if is_valid:
+        print('Merkle Path is : ')
+        print_list_or_dict(MP)
+        print('Light node is using the Merkle Path to validate..')
+        TX_is_valid = merkletools.SPV(MP, TX['TX_Double_Hash'], light_blockchain[block_num]['MR'])
+        print('TX was found valid by light-node: ' + str(TX_is_valid))
+    else:
+        print('Full node responded to light-node that the TX is invalid. Thus, TX should be ignored.')
 
 
 # define the used consensus
@@ -72,6 +77,7 @@ def get_transactions(num_txs):
         while new_tx in txs_set:
             new_tx = get_new_transaction()
         txs_set.add(new_tx)
+        stack_of_TXs.append(new_tx)
         txs[entity] = {'TX_Double_Hash': encryption_module.hash_twice(new_tx),
                        'Data': new_tx}
     return txs
@@ -86,8 +92,8 @@ def print_list_or_dict(to_be_printed):
     if type(to_be_printed) == dict:
         pprint.pprint(to_be_printed, sort_dicts=False)
     elif type(to_be_printed) == list:
-        for element in to_be_printed:
-            print(element)
+        for element in range(len(to_be_printed)):
+            print(str(element + 1) + ': ' + str(to_be_printed[element]))
     print('==========================================')
 
 
