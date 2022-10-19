@@ -19,7 +19,7 @@ public_key, private_key = encryption_module.generate_keys()
 
 def randomly_select_TX():
     block = random.choice(full_blockchain)
-    while len(block['Body']) == 0 :
+    while len(block['Body']) == 0:
         block = random.choice(full_blockchain)
     TX = random.choice(block['Body'])
     print('Randomly selected Block is number: ' + str(block['Header']['block_no']))
@@ -86,8 +86,8 @@ def print_list_or_dict(to_be_printed):
     if type(to_be_printed) == dict:
         pprint.pprint(to_be_printed, sort_dicts=False)
     elif type(to_be_printed) == list:
-        for element in range(len(to_be_printed)):
-            print(str(element + 1) + '- ' + to_be_printed[element])
+        for element in to_be_printed:
+            print(element)
     print('==========================================')
 
 

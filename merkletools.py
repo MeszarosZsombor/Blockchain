@@ -19,7 +19,7 @@ def get_Merkle_Tree(dict_of_txs):
             nodes_of_merkle_tree.append(new_value)
         if len(nodes_of_merkle_tree) % 2 != 0:
             nodes_of_merkle_tree.append(nodes_of_merkle_tree[-1])
-            list_of_txs.append(nodes_of_merkle_tree[-1])
+            next_level.append(nodes_of_merkle_tree[-1])
         list_of_concatenations = get_concatenations(next_level)
     nodes_of_merkle_tree.append(encryption_module.hash_twice(list_of_concatenations[0]))
     return nodes_of_merkle_tree
@@ -44,9 +44,9 @@ def get_concatenations(list_of_TXs):
 
 def request_merkle_path(tx, full_blockchain):
     for block in full_blockchain:
-        for element in block['Body']:
-            if block['Body'][element]['Data'] == tx['Data']:
-                return get_path(block['Merkle_tree'], block['Body'][element]['TX_Double_Hash'])
+        for TX_num in block['Body']:
+            if block['Body'][TX_num]['Data'] == tx['Data']:
+                return get_path(block['Merkle_tree'], block['Body'][TX_num]['TX_Double_Hash'])
 
 
 def get_path(nodes_of_merkel_tree_reversed, tx_hash):
@@ -55,10 +55,12 @@ def get_path(nodes_of_merkel_tree_reversed, tx_hash):
         if nodes_of_merkel_tree_reversed[index] == tx_hash:
             if (index % 2) == 0:
                 sibling = nodes_of_merkel_tree_reversed[index + 1]
+                next_to_hash = tx_hash + sibling
             else:
                 sibling = nodes_of_merkel_tree_reversed[index - 1]
-            path.append(sibling)
-            tx_hash = encryption_module.hash_twice(tx_hash + sibling)
+                next_to_hash = sibling + tx_hash
+            path.append([sibling, index])
+            tx_hash = encryption_module.hash_twice(next_to_hash)
     path.append(nodes_of_merkel_tree_reversed[-1])
     return path
 
@@ -68,10 +70,17 @@ def SPV(path, target_hash, merkle_root):
         return target_hash == merkle_root
     else:
         for sibling in path:
-            if sibling == merkle_root:
-                return target_hash == merkle_root
+            if type(sibling) != list:
+                return sibling == merkle_root
             else:
-                target_hash = encryption_module.hash_twice(sibling + target_hash)
+                sibling_hash = sibling[0]
+                sibling_index = sibling[1]
+
+                if (sibling_index % 2) == 0:
+                    target_hash = encryption_module.hash_twice(sibling_hash + target_hash)
+                else:
+                    target_hash = encryption_module.hash_twice(target_hash + sibling_hash)
+
 
 
 def get_next_level_MT(list_of_TXs, nodes_of_Merkel_Tree_reversed):
