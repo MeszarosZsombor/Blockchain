@@ -50,6 +50,7 @@ def request_merkle_path(tx, full_blockchain, stack_of_txs):
     for element in stack_of_txs:
         if element == tx['Data']:
             tx_is_valid = True
+            # step2: build the path of the valid TX
             print('TX is found valid, Full node is building the Merkle Path for the light-node..')
             for block in full_blockchain:
                 for TX_num in block['Body']:
@@ -89,30 +90,3 @@ def SPV(path, target_hash, merkle_root):
                     target_hash = encryption_module.hash_twice(sibling_hash + target_hash)
                 else:
                     target_hash = encryption_module.hash_twice(target_hash + sibling_hash)
-
-
-
-def get_next_level_MT(list_of_TXs, nodes_of_Merkel_Tree_reversed):
-    counter = 0
-    concatenations = []
-    while counter < len(list_of_TXs):
-        TX1 = list_of_TXs[counter]
-        try:
-            TX2 = list_of_TXs[counter + 1]
-        except Exception as e1:
-            TX2 = list_of_TXs[counter]
-
-        try:
-            TX1_double_hash = TX1['TX_Double_Hash']
-        except:
-            TX1_double_hash = encryption_module.hash_twice(TX1)
-        try:
-            TX2_double_hash = TX2['TX_Double_Hash']
-        except Exception as e2:
-            TX2_double_hash = encryption_module.hash_twice(TX2)
-        nodes_of_Merkel_Tree_reversed.append(TX1_double_hash)
-        nodes_of_Merkel_Tree_reversed.append(TX2_double_hash)
-        concatenated = TX1_double_hash + TX2_double_hash
-        concatenations.append(concatenated)
-        counter += 2
-    return concatenations, nodes_of_Merkel_Tree_reversed
