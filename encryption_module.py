@@ -66,7 +66,7 @@ def hash_twice(entity):
 
 def get_PoW_proof(block, targeted_hash):
     for nonce in range(1, 4000000000):
-        hash_of_block = hash_object([nonce, block['Header']['Timestamp'], block['Header']['previous_hash'], block['Body']])
+        hash_of_block = hash_object([nonce, block['Header']['Timestamp'], block['Header']['previous_hash'], block['Header']['MR']])
         if pow_block_is_valid(hash_of_block, targeted_hash):
             block['Header']['Hash'] = hash_of_block
             block['Header']['proof'] = nonce
@@ -76,28 +76,28 @@ def get_PoW_proof(block, targeted_hash):
 
 def pow_block_is_valid(hash_of_block, targeted_hash):
     return int(hash_of_block, 16) <= int(targeted_hash, 16)
+#
+#
+# def get_PoS_proof(block, staked_crypto):
+#     block['Header']['proof'] = [staked_crypto, 'Miner_1']
+#     return block
 
 
-def get_PoS_proof(block, staked_crypto):
-    block['Header']['proof'] = [staked_crypto, 'Miner_1']
-    return block
-
-
-def get_PoA_proof(block):
-
-    signature_bytes = sign(block['Body'])
-    if verify_signature(hash_object(block['Body']), signature_bytes, retrieve_key_from_saved_file('Public')):
-        print('Signature is valid')
-        block['Header']['proof'] = signature_bytes
-        print('Signature added to the block')
-
-    return block
+# def get_PoA_proof(block):
+#
+#     signature_bytes = sign(block['Body'])
+#     if verify_signature(hash_object(block['Body']), signature_bytes, retrieve_key_from_saved_file('Public')):
+#         print('Signature is valid')
+#         block['Header']['proof'] = signature_bytes
+#         print('Signature added to the block')
+#
+#     return block
 
 
 def get_proof(block, consensus, parameter):
     if consensus == 1:
         return get_PoW_proof(block, parameter)
-    elif consensus == 2:
-        return get_PoS_proof(block, parameter)
-    elif consensus == 3:
-        return get_PoA_proof(block)
+    # elif consensus == 2:
+    #     return get_PoS_proof(block, parameter)
+    # elif consensus == 3:
+    #     return get_PoA_proof(block)

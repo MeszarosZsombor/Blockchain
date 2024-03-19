@@ -25,15 +25,15 @@ def get_Merkle_Tree(dict_of_txs):
     return nodes_of_merkle_tree
 
 
-def get_concatenations(list_of_TXs):
+def get_concatenations(lst_of_TXs):
     concatenations = []
     counter = 0
-    while counter < len(list_of_TXs):
-        TX1 = list_of_TXs[counter]
+    while counter < len(lst_of_TXs):
+        TX1 = lst_of_TXs[counter]
         try:
-            TX2 = list_of_TXs[counter + 1]
+            TX2 = lst_of_TXs[counter + 1]
         except Exception as e1:
-            TX2 = list_of_TXs[counter]
+            TX2 = lst_of_TXs[counter]
         try:
             concatenations.append(TX1['TX_Double_Hash'] + TX2['TX_Double_Hash'])
         except Exception as e2:
