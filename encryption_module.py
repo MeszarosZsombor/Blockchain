@@ -65,6 +65,7 @@ def hash_twice(entity):
 
 
 def get_PoW_proof(block, targeted_hash):
+    print("Mining ... hold on")
     for nonce in range(1, 4000000000):
         hash_of_block = hash_object([nonce, block['Header']['Timestamp'], block['Header']['previous_hash'], block['Header']['MR']])
         if pow_block_is_valid(hash_of_block, targeted_hash):
